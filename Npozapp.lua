@@ -31,6 +31,9 @@ local TARGET_MESH_ID = "rbxassetid://100763896013483"
 local teleporting = false
 local teleportThread = nil
 local collectSpeed = 0.1 -- varsayılan hız
+local autoTrading = false
+local tradeThread = nil
+local tradePosition = Vector3.new(314.26568603515625, 232.28529357910156, 333.74920654296875)
 
 -- UI
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/oxireun/User/refs/heads/main/Oxireunuilibrary.lua"))()
@@ -120,12 +123,62 @@ local function startTeleport()
                 end
             end
 
-            task.wait(collectSpeed) -- burası slider değerini kullanacak
+            task.wait(collectSpeed)
         end
     end)
 end
 
--- Toggle
+-- Auto Trade fonksiyonu
+local function startAutoTrade()
+    if tradeThread then
+        task.cancel(tradeThread)
+        tradeThread = nil
+    end
+    
+    tradeThread = task.spawn(function()
+        while autoTrading do
+            local success, errorMessage = pcall(function()
+                local args = {
+                    [1] = tradePosition
+                }
+                
+                -- ReplicatedStorage'dan servisi bul
+                local replicatedStorage = game:GetService("ReplicatedStorage")
+                local packages = replicatedStorage:FindFirstChild("Packages")
+                
+                if packages then
+                    local knitPackage = packages._Index:FindFirstChild("sleitnick_knit@1.7.0")
+                    if knitPackage then
+                        local knit = knitPackage:FindFirstChild("knit")
+                        if knit then
+                            local services = knit:FindFirstChild("Services")
+                            if services then
+                                local featherService = services:FindFirstChild("FeatherService")
+                                if featherService then
+                                    local remoteFunction = featherService:FindFirstChild("RF")
+                                    if remoteFunction then
+                                        local submitFunction = remoteFunction:FindFirstChild("SubmitFeathersForPeacock")
+                                        if submitFunction then
+                                            submitFunction:InvokeServer(unpack(args))
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            
+            if not success then
+                warn("Auto Trade Hatası:", errorMessage)
+            end
+            
+            task.wait(0.1) -- Her 0.1 saniyede bir ticaret yap
+        end
+    end)
+end
+
+-- Toggle'lar
 MainSection:CreateToggle("Auto collect", false, function(value)
     teleporting = value
     if value then
@@ -138,13 +191,25 @@ MainSection:CreateToggle("Auto collect", false, function(value)
     end
 end)
 
+MainSection:CreateToggle("Auto Trade", false, function(value)
+    autoTrading = value
+    if value then
+        startAutoTrade()
+    else
+        if tradeThread then
+            task.cancel(tradeThread)
+            tradeThread = nil
+        end
+    end
+end)
+
 -- Slider (sadece 0.1 ile 3 arasında değer alır)
 MainSection:CreateSlider("Collect per second", 0.1, 3, 0.1, function(value)
     collectSpeed = math.clamp(value, 0.1, 3)
     print("Collect speed set to:", collectSpeed)
 end)
 
-MainSection:CreateButton("Trade", function()
+MainSection:CreateButton("Shop", function()
     game.Players.LocalPlayer.Character:PivotTo(CFrame.new(Vector3.new(311.13, 232.09, 328.06)))
 end)
 
